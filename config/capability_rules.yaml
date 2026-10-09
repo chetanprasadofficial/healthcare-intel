@@ -1,0 +1,55 @@
+# PROJECT RULES (not clinical standards). Hard = must be evidenced; soft = raises confidence.
+# Each dependency is a list of words searched in the facility's own notes.
+version: 1
+source_note: "Starter rules written by the team; review against Indian Public Health Standards before claiming compliance."
+rules:
+  surgery:
+    hard:
+      operation_theatre: ["operation theatre", "operation theater", "operating theatre", "operating room", "ot"]
+      anaesthesia: [anaesthesia, anesthesia, anaesthetist, anesthetist, anaesthesiologist, anesthesiologist]
+    soft:
+      surgeon: [surgeon]
+      blood_bank: ["blood bank", "blood storage"]
+  icu:
+    hard:
+      life_support: [ventilator, ventilators, monitor, monitors, oxygen, defibrillator]
+      doctor: [doctor, intensivist, physician, consultant, specialist]
+    soft:
+      nursing: [nurse, nurses, nursing]
+      power_backup: ["power backup", generator, "backup power"]
+  emergency:
+    hard:
+      round_the_clock: ["24x7", "24/7", "24 x 7", "24×7", "24*7", "round the clock", "24 hours"]
+      doctor: [doctor, physician, consultant, specialist, "on duty"]
+    soft:
+      ambulance: [ambulance]
+      oxygen: [oxygen]
+      blood_bank: ["blood bank"]
+  dialysis:
+    hard:
+      machines: [machine, machines, "dialysis unit", "dialysis center", "dialysis centre", beds, bed]
+      clinician: [nephrologist, nephrology, physician, doctor, technician, nurse]
+    soft:
+      water_treatment: ["ro plant", "water treatment", "reverse osmosis"]
+  trauma:
+    hard:
+      surgical_staff: [surgeon, orthopaedic, orthopedic]
+      imaging: ["x-ray", xray, "x ray", imaging, radiology, "ct scan"]
+    soft:
+      icu: [icu, "intensive care"]
+      ambulance: [ambulance]
+  oncology:
+    hard:
+      oncology_staff: [oncologist, oncology]
+      treatment: [chemotherapy, radiotherapy, "radiation", "chemo"]
+    soft:
+      diagnostics: [pathology, "pet scan", "ct scan", mri, imaging]
+  anaesthesia:
+    hard: {}
+    soft: {}
+# facility types that should not normally claim these (type-mismatch flag)
+type_mismatch:
+  clinic: [icu, trauma, oncology]
+  doctor: [icu, surgery, dialysis, trauma, oncology, emergency]
+weights: {evidence: 0.30, dependencies: 0.30, consistency: 0.20, freshness: 0.10, quality: 0.10}
+freshness_months: 24
