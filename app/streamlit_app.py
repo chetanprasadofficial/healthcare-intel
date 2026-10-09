@@ -72,16 +72,36 @@ c = out.get("counts", {})
 st.caption(f"{c.get('in_scope', 0)} facilities in scope · {c.get('with_any_evidence', 0)} have any evidence · "
            f"{c.get('verified', 0)} verified · {c.get('unverified', 0)} unverified · {c.get('rejected', 0)} rejected"
            + (f" · searched within {out['radius_km']} km" if out.get("radius_km") else ""))
+if out.get("anchor"):
+    st.caption(f"Distances are measured from {out['anchor'].get('basis', 'the search area')} "
+               "(the average position of listings there, so approximate).")
 
-def card(item, expanded=False):
+def place(item):
+    city, state = item.get("city") or "", item.get("state") or ""
+    if not city or city.strip().lower() == str(state).strip().lower():
+        return str(state)
+    return f"{city}, {state}"
+
+def card(item, expanded=False, nested=False):
     tier = item.get("tier", "Unverified")
     icon = {"Verified": "✅", "Partially verified": "🟡"}.get(tier, "⚪")
-    with st.expander(f"{icon} {item['name']}  ·  {item['city']}, {item['state']}", expanded=expanded):
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Status", tier)
-        m2.metric("Distance", "n/a" if item["distance_km"] is None else f"{item['distance_km']} km")
-        m3.metric("Trust (heuristic)", f"{item['trust']:.0f}/100")
-        st.caption(f"{item['type']} · PIN {item['pin']} · staff evidence: {item['staff_fit']}")
+    title = f"{icon} {item['name']}  ·  {place(item)}"
+    if nested:
+        box = st.container(border=True)
+        box.markdown(f"**{title}**")
+    else:
+        box = st.expander(title, expanded=expanded)
+    with box:
+        m1, m2, m3 = st.columns([2, 1, 1])
+        m1.markdown(f"**Status**  \n{icon} {tier}")
+        if item["distance_km"] is None:
+            m2.markdown("**Distance**  \nn/a")
+        else:
+            m2.metric("Distance", f"{item['distance_km']} km")
+        m3.metric("Trust", f"{item['trust']:.0f}/100")
+        if item["distance_km"] is None:
+            st.caption("Add a PIN code or city to the search to see distance.")
+        st.caption(f"{item['type']} · PIN {item['pin']} · staff evidence: {item['staff_fit']} · trust is a heuristic, not a probability")
         for z in item["citations"]:
             st.markdown(f"**{z['capability']}** · {item['labels'].get(z['capability'], '')}")
             st.markdown(f"> {z['quote']}")
@@ -102,17 +122,17 @@ else:
     st.warning("No facility in this area has enough evidence for everything you asked. "
                "That is a data gap, not proof that care is unavailable. See the unverified list below, and call ahead.")
 
-# ---- 3. Map ----
+# ---- Map ----
 pts = [dict(lat=x["lat"], lon=x["lon"]) for x in out["results"] + out["unverified"][:3] if x.get("lat")]
 if out.get("anchor"):
     pts.append(dict(lat=float(out["anchor"]["lat"]), lon=float(out["anchor"]["lon"])))
 if pts:
     st.map(pd.DataFrame(pts), latitude="lat", longitude="lon")
 
-# ---- 4. Unverified + why not ----
+# ---- Unverified + why not ----
 with st.expander(f"Unverified options ({len(out['unverified'])}): shown separately, not recommended"):
     for item in out["unverified"]:
-        card(item)
+        card(item, nested=True)
 st.subheader("3. Why not these?")
 if out["why_not"]:
     for w in out["why_not"]:
@@ -121,7 +141,7 @@ if out["why_not"]:
 else:
     st.caption("No near-miss facilities to explain.")
 
-# ---- 5. Unknowns ----
+# ---- Unknowns ----
 st.subheader("4. What we could not verify")
 for u in out["unknowns"]:
     st.markdown(f"- {u}")

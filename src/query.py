@@ -15,13 +15,20 @@ CAP_TERMS = {   # phrase -> list of required capabilities
 }
 HINDI_STATES = {"बिहार": "Bihar", "दिल्ली": "Delhi", "उत्तर प्रदेश": "Uttar Pradesh", "महाराष्ट्र": "Maharashtra", "राजस्थान": "Rajasthan",
                 "गुजरात": "Gujarat", "केरल": "Kerala", "पंजाब": "Punjab", "हरियाणा": "Haryana", "झारखंड": "Jharkhand", "मध्य प्रदेश": "Madhya Pradesh"}
+CITY_STOP = {"me", "my area", "my city", "an emergency", "emergency", "case of emergency", "need", "urgent", "time", "hurry"}
+
+def has(term, t):
+    """Whole-word match for Latin terms (so 'icu' does not match 'Calicut'); plain match for Devanagari."""
+    if not term.isascii():
+        return term in t
+    return re.search(r"(?<![a-z0-9])" + re.escape(term) + r"(?:s|es)?(?![a-z0-9])", t) is not None
 
 def parse(text):
     t = text.lower()
     req = {"raw": text, "capabilities": [], "state": None, "city": None, "pin": None, "staffing_mode": None,
            "urgency": "normal", "rural": False, "sort": "score", "unparsed_notes": []}
     for term in sorted(CAP_TERMS, key=len, reverse=True):
-        if term in t:
+        if has(term, t):
             for c in CAP_TERMS[term]:
                 if c not in req["capabilities"]: req["capabilities"].append(c)
     m = re.search(r"\b(\d{6})\b", t)
@@ -36,7 +43,8 @@ def parse(text):
     cm = re.search(r"\b(?:in|near|around|at)\s+([a-z][a-z .-]{2,25}?)(?:,|\s+(?:with|that|who|and|for|having|which)\b|$)", t)
     if cm and not req["pin"]:
         cand = cm.group(1).strip()
-        if cand not in {s.lower() for s in CANON} and cand not in ALIAS and not cand.startswith(("rural", "urban", "the ")):
+        if (cand not in {s.lower() for s in CANON} and cand not in ALIAS and cand not in CITY_STOP
+                and not cand.startswith(("rural", "urban", "the ", "an ", "a ", "my "))):
             req["city"] = cand
     if re.search(r"part[- ]time|visiting|on[- ]call|consultant visits", t): req["staffing_mode"] = "part_time"
     elif re.search(r"full[- ]time|resident|24 ?x ?7 doctor", t): req["staffing_mode"] = "full_time"
