@@ -2,7 +2,8 @@
 Usage: python src/extract.py data/<file>.csv NOTES_COL [NOTES_COL2 ...]
 Statuses: supported | mentioned_only | contradicted   (unknown = no claim row at all)
 v2 fixes: strong/weak terms, list-style sentences capped, tight negation window,
-"No 1" marketing text ignored, dentists/pharmacies filtered out."""
+"No 1" marketing text ignored, dentists/pharmacies filtered out.
+v2.1: direct assertions ("ICU available") count as supported; short "A, B and C" lists are list-like."""
 import re, sys, json, yaml, pandas as pd
 
 CFG = yaml.safe_load(open("config/lexicons.yaml"))
@@ -20,6 +21,7 @@ STRONG = {k: term_re(v["strong"]) for k, v in CAPS.items()}
 WEAK = {k: term_re(v["weak"]) for k, v in CAPS.items()}
 EXCL_RE = {k: term_re(v) for k, v in EXCL.items()}
 NEG_RE, HEDGE_RE, DETAIL_RE = term_re(NEG), term_re(HEDGE), term_re(DETAIL)
+ASSERT_RE = term_re(["available", "offers", "provides", "has", "equipped"])
 STAFF_RE = {k: term_re(v) for k, v in STAFF.items()}
 NO_NUMBER = re.compile(r"\bno\.?\s*(1|one|\d+)\b|\bnumber\s*1\b")   # "India's No 1 ..." is marketing
 
@@ -48,6 +50,7 @@ def sentences(text):
 
 def is_list_like(sl, n_caps):
     return (n_caps >= 3 or sl.count("|") >= 2 or sl.count(",") >= 4
+            or sl.count(",") + sl.count(" and ") >= 2
             or any(c in sl for c in LIST_CUES))
 
 def negated(sl, m):
@@ -63,7 +66,7 @@ def hedged(sl, m):
 def classify(sl, m, strong, list_like):
     if negated(sl, m) or hedged(sl, m): return "contradicted"
     if not strong or list_like or any(c in sl for c in MARKETING): return "mentioned_only"
-    if re.search(r"\d", sl) or DETAIL_RE.search(sl): return "supported"
+    if re.search(r"\d", sl) or DETAIL_RE.search(sl) or ASSERT_RE.search(sl): return "supported"
     return "mentioned_only"
 
 def staffing(sl):
