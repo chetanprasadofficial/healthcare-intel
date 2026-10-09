@@ -1,0 +1,15 @@
+# Plain config: extend this from the real notes you read. Not the solution, just vocabulary.
+capabilities:
+  icu: [icu, iccu, nicu, picu, "intensive care", "critical care", hdu, ventilator, ventilators]
+  emergency: [emergency, casualty, "24x7", "24/7", "24 x 7", "round the clock", "accident and emergency"]
+  dialysis: [dialysis, hemodialysis, haemodialysis, "renal replacement", nephrology, nephrologist, "kidney care"]
+  oncology: [oncology, oncologist, chemotherapy, radiotherapy, "cancer care", "cancer treatment"]
+  trauma: [trauma, orthopaedic, orthopedic, fracture, "accident care"]
+  surgery: [surgery, surgeon, "operation theatre", "operation theater", "operating theatre", ot, appendectomy, "c-section", caesarean]
+  anaesthesia: [anaesthesia, anesthesia, anaesthetist, anesthetist, anaesthesiologist, anesthesiologist]
+negation: ["no", not, without, lacks, lacking, nil, absent, "non-functional", "non functional", "out of order", unplugged, closed]
+hedge: [planned, proposed, "under construction", "coming soon", upcoming, referred, "refer to", "to be started", "will be", expected]
+staffing:
+  full_time: ["full time", "full-time", resident, "on duty", permanent]
+  part_time: ["part time", "part-time", visiting, "on call", "on-call", "visits on", visits]
+detail_cues: [machine, machines, ventilator, ventilators, beds, bed, working, functional, doctor, specialist, nephrologist, intensivist, surgeon, technician, "24x7", "24/7"]
