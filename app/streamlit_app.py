@@ -7,6 +7,7 @@ os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, "src"))
 import pandas as pd
 import streamlit as st
 from search import search, Index
+from validator import validate
 
 st.set_page_config(page_title="Healthcare Intelligence", page_icon="🏥", layout="centered")
 
@@ -50,7 +51,7 @@ query = st.session_state.q.strip()
 if not query:
     st.stop()
 
-out = search(query, k=5, idx=idx)
+out = validate(search(query, k=5, idx=idx))   # every claim passes the validator before display
 p = out["parsed"]
 
 # ---- 1. What we understood (shown BEFORE results) ----
@@ -89,6 +90,8 @@ def card(item, expanded=False):
             st.info(f"No evidence in the record for **{m}** (unknown, not proof that it is absent).")
         for fl in item["flags"]:
             st.warning(fl)
+        for n in item.get("validator_notes", []):
+            st.caption("🛡️ Validator: " + n)
 
 # ---- 2. Results ----
 st.subheader("2. Best-supported matches")
@@ -122,6 +125,17 @@ else:
 st.subheader("4. What we could not verify")
 for u in out["unknowns"]:
     st.markdown(f"- {u}")
+
+st.subheader("5. Validator log")
+v = out["validator"]
+if v["edits"]:
+    st.warning(v["summary"])
+    for e in v["edits"]:
+        st.markdown(f"- `{e['check']}` **{e['action']}** · {e['facility']} · {e['capability'] or ''} · {e['reason']}")
+else:
+    st.success(v["summary"] + " Nothing needed changing.")
+st.caption("Checks: V1 citation present · V2 quote found in the raw source cell · V3 claim derivable from the quote · "
+           "V5 no live-availability wording · V8 unknowns never shown as verified · V9 photo-caption evidence flagged.")
 
 with st.expander("How is the trust score calculated?"):
     st.markdown(

@@ -59,7 +59,7 @@ def search(text, k=5, idx=None):
         score = 100 * (W["match"] * trust / 100 + W["prox"] * P + W["staff"] * S + W["fresh"] * fresh + W["complete"] * 1.0)
         fl = idx.flags[(idx.flags.row_id == rid) & idx.flags.capability.isin(req["capabilities"])]
         item = dict(row_id=int(rid), name=row["name"], type=row.facilityTypeId, city=row.address_city, state=row.state_clean,
-                    pin=row.pin, distance_km=None if dist is None else round(dist, 1), trust=round(trust, 1), score=round(score, 1),
+                    pin=row.pin, lat=float(row.latitude), lon=float(row.longitude), distance_km=None if dist is None else round(dist, 1), trust=round(trust, 1), score=round(score, 1),
                     labels={c: r.label for c, r in have.items()}, citations=citations(g),
                     flags=[f"{a.flag}: {a.detail}" for a in fl.itertuples()], staff_fit={1.0: "evidenced", 0.5: "unknown", 0.0: "conflicting"}[S],
                     missing=missing, contradicted=contradicted, mentioned_only=mentioned)
