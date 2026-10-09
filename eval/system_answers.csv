@@ -1,0 +1,56 @@
+id,row_id,capability,status,quote
+1,921,icu,mentioned_only,ICU with advanced critical care facilities
+2,1144,oncology,contradicted,"Does not provide chemotherapy, radiation therapy, or surgical treatment"
+3,528,oncology,supported,Provides cancer treatment modalities tailored to cancer types
+4,9954,emergency,supported,Provides emergency care
+5,4343,emergency,supported,Emergency information directs patients to call 911 for medical emergencies
+6,6491,oncology,mentioned_only,"Provides modern cancer care including immunotherapy and advanced radiation therapy modalities (IMRT, IGRT, Proton Therapy)"
+7,1956,oncology,mentioned_only,Day care chemotherapy centre
+8,2106,oncology,mentioned_only,oncology
+9,8270,emergency,contradicted,24 HOURS EMERGENCY SERVICES WITHOUT ANY EXTRA CHARGES
+10,5311,dialysis,mentioned_only,"Provides outpatient medical consultation for heart problems (heart attack), diabetes, hypertension, brain attack (stroke), kidney problems (dialysis), asthma, COPD and other general complications."
+11,6176,surgery,mentioned_only,Laser Prostate Surgery
+12,6298,emergency,mentioned_only,Emergency appointments
+13,3168,surgery,mentioned_only,Specializes in cataract surgery
+14,6396,emergency,supported,24/7 emergency care
+15,1941,trauma,supported,Provides 24x7 emergency and trauma care
+16,2727,oncology,supported,Offers dental and cancer care services
+17,3461,surgery,supported,Provides cesarean-section delivery (C-section)
+18,2245,icu,mentioned_only,India's No 1 Rural ICU center now at Oddanchatram!
+19,522,surgery,contradicted,No bypass surgery;
+20,1844,oncology,supported,Provides chemotherapy as part of cancer treatment
+21,9595,surgery,supported,Offers LASIK laser eye surgery
+22,1843,emergency,contradicted,Outpatient consultation centre with no emergency services
+23,1229,dialysis,mentioned_only,"Provides advanced critical care management in trauma, cardiac, neuro, orthopaedics, and nephrology"
+24,4246,oncology,supported,Provides gynaecological cancer treatment
+25,9943,emergency,supported,"Emergency information: For medical emergencies, call 911 immediately"
+26,4205,icu,mentioned_only,Ultra-modern intensive care units
+27,5598,surgery,supported,"Dr. Parag Seth has performed 17,000+ successful heart surgeries"
+28,6549,oncology,mentioned_only,Uro-oncology
+29,6684,icu,supported,5-bed ICU
+30,3957,dialysis,supported,Haemodialysis sessions last 3 to 5 hours and are conducted three times weekly
+31,7341,emergency,mentioned_only,"24/7 EMERGENCY & TRAUM CENTRE, OPD,IP, ICU,NIC ,POISON ,BURN ,OT VENTILATOR ,C-ARM, LAB, PHARMACY,ULTRASOUND ( OUT), X-RAY (OUT) ,CT SCAN ( OUT), MRI SCAN (OUT)"
+32,8530,trauma,supported,Provides trauma care services
+33,6363,trauma,mentioned_only,Orthopedic surgery services
+34,9481,dialysis,supported,Provides dialysis services
+35,7034,emergency,mentioned_only,"We are seeking qualified medical professionals with experience and commitment, especially gynecologists, pediatricians, emergency medicine, and nurses, willing to volunteer for short or long term basis."
+36,4526,dialysis,contradicted,"Our Vision is to be the leading global institution in Electrohomeopathy, revolutionizing the way kidney diseases are treated without dialysis."
+37,7020,dialysis,supported,Provides dialysis/haemodialysis
+38,6650,trauma,supported,Has Emergency & Trauma Centre
+39,2009,surgery,contradicted,No medications or surgery used during treatments
+40,5731,trauma,mentioned_only,"Specialized orthopedic hospital focusing on knee replacement, hip replacement, arthroscopy, sports injuries, fractures, and complex trauma"
+41,7095,surgery,supported,Offers LASIK laser eye surgery
+42,6744,icu,supported,24/7 Critical Care Doctors
+43,3357,surgery,mentioned_only,Lipoma Surgery
+44,4571,trauma,supported,Provides trauma centre services
+45,3957,dialysis,supported,Performs haemodialysis treatment for kidney failure using dialysis machines
+46,5249,trauma,mentioned_only,"Health Plus Hospital offers 24×7 Advanced Multispeciality Care including Emergency, ICU, Surgery, Trauma, and critical care services with compassion and expertise."
+47,7529,emergency,mentioned_only,Critical Care | ICU | Emergency | Ventilator | Gynecologist & Obstetrician | Surgeon
+48,1144,oncology,contradicted,"We Treat Cancer Pain without using Chemotherapy, Surgery and Radiation."
+49,1267,surgery,mentioned_only,Retrograde intrarenal surgery (RIRS)
+50,4828,icu,supported,Intensive Care Unit (ICU) with patient beds and monitoring equipment (ICU-I sign visible)
+51,6080,icu,mentioned_only,Technologically well-supported intensive care unit
+52,9561,dialysis,mentioned_only,Dialysis-related kidney disease management
+53,6298,icu,supported,Fully equipped ICU
+54,1744,dialysis,mentioned_only,Renowned kidney hospital dedicated to affordable dialysis and comprehensive support for renal patients worldwide.
+55,3947,trauma,mentioned_only,Orthopaedic Doctors in Bhopal

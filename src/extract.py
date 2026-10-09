@@ -60,7 +60,8 @@ def is_list_like(sl, n_caps):
 
 def negated(sl, m):
     before = " ".join(sl[:m.start()].split()[-4:])
-    after = " ".join(sl[m.end():].split()[:3])
+    rest = re.sub(r"\bwithout (any )?(extra|additional|delay|waiting|appointment)\w*", " ", sl[m.end():])
+    after = " ".join(rest.split()[:3])
     before = NO_NUMBER.sub(" ", before)
     return bool(NEG_RE.search(before) or NEG_RE.search(after))
 
@@ -68,10 +69,16 @@ def hedged(sl, m):
     window = " ".join(sl[:m.start()].split()[-5:]) + " | " + " ".join(sl[m.end():].split()[:5])
     return bool(HEDGE_RE.search(window))
 
-def classify(sl, m, strong, list_like):
+BOILER = re.compile(r"call 911|emergency information|emergency appointments?|has performed|performed \d|sessions? (?:last|are)|we are seeking")
+SHORT_FIELDS = {"capability", "procedure", "equipment"}
+BED_RE = re.compile(r"\b\d+[- ]?(?:bed|beds|machine|machines)\b")
+
+def classify(sl, m, strong, list_like, field=""):
     if negated(sl, m) or hedged(sl, m): return "contradicted"
+    if BOILER.search(sl): return "mentioned_only"
     if not strong or list_like or (MARKETING_RE and MARKETING_RE.search(sl)): return "mentioned_only"
-    if re.search(r"\d", sl) or DETAIL_RE.search(sl) or ASSERT_RE.search(sl): return "supported"
+    if DETAIL_RE.search(sl) or ASSERT_RE.search(sl) or BED_RE.search(sl): return "supported"
+    if field in SHORT_FIELDS and len(sl.split()) <= 8: return "supported"   # short direct item, e.g. "Day care chemotherapy centre"
     return "mentioned_only"
 
 def staffing(sl):
@@ -96,7 +103,7 @@ def extract_text(row_id, field, text):
                 if m: hits[cap] = (m, False)
         list_like = is_list_like(sl, len(hits))
         for cap, (m, strong) in hits.items():
-            claims.append(dict(row_id=row_id, capability=cap, status=classify(sl, m, strong, list_like),
+            claims.append(dict(row_id=row_id, capability=cap, status=classify(sl, m, strong, list_like, field),
                                quote=sent.strip(), field=field, char_start=s, char_end=e,
                                staffing_mode=staffing(sl), term_strength="strong" if strong else "weak",
                                list_like=list_like, method="rule"))
