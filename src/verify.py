@@ -1,7 +1,8 @@
 """Verify: claims.csv + raw data -> facility table, per-facility capability verdicts, flags.
 Usage: python src/verify.py data/<file>.csv
 Writes: data/facilities.csv, data/facility_caps.csv, data/flags.csv
-Trust is a HEURISTIC score (not a calibrated probability)."""
+Trust is a HEURISTIC score (not a calibrated probability).
+A capability that is both supported AND contradicted in the same record becomes 'Conflicting notes' (never verified)."""
 import re, sys, json, yaml, pandas as pd
 
 RULES = yaml.safe_load(open("config/capability_rules.yaml"))
@@ -39,7 +40,6 @@ def main(path):
     df.index.name = "row_id"
     claims = pd.read_csv("data/claims.csv")
     ref = pd.to_datetime(df["recency_of_page_update"], errors="coerce").max()
-    fac = df[df.facilityTypeId.isin(claims.row_id.map(df.facilityTypeId).unique())].copy()
 
     fac_out = df.loc[df.facilityTypeId.isin(["hospital", "clinic", "doctor"]),
         ["name", "facilityTypeId", "operatorTypeId", "address_city", "address_stateOrRegion",
@@ -53,8 +53,11 @@ def main(path):
         if "supported" in stat: status = "supported"
         elif "mentioned_only" in stat: status = "mentioned_only"
         else: status = "contradicted"
-        conflict = ("contradicted" in stat) and (stat & {"supported", "mentioned_only"})
-        best = (g[g.status == status].assign(w=lambda x: (x.term_strength == "strong").astype(int))
+        conflict = ("contradicted" in stat) and bool(stat & {"supported", "mentioned_only"})
+        pick = status                                   # which claim rows to quote
+        if conflict and status == "supported":
+            status = "mentioned_only"                   # a denial in the same record: never "supported"
+        best = (g[g.status == pick].assign(w=lambda x: (x.term_strength == "strong").astype(int))
                 .sort_values("w", ascending=False).iloc[0])
         spec = DEP_RX.get(cap, {"hard": {}, "soft": {}})
         hard = {n: bool(r.search(text)) for n, r in spec["hard"].items()}
@@ -75,9 +78,11 @@ def main(path):
         F, fresh = freshness(row, ref); Q = quality(row)
         T = 100 * (W["evidence"] * E + W["dependencies"] * D + W["consistency"] * max(K, 0) + W["freshness"] * F + W["quality"] * Q)
         if status == "contradicted": T = min(T, 40)
+        elif conflict: T = min(T, 45)
         elif missing: T = min(T, 60)
-        label = {"supported": "Supported" if not missing else "Partially supported",
-                 "mentioned_only": "Mentioned only", "contradicted": "Contradicted"}[status]
+        label = ("Conflicting notes" if conflict and status != "contradicted" else
+                 {"supported": "Supported" if not missing else "Partially supported",
+                  "mentioned_only": "Mentioned only", "contradicted": "Contradicted"}[status])
         out.append(dict(row_id=rid, name=row["name"], facility_type=ftype, state=row["address_stateOrRegion"],
                         city=row["address_city"], pin=row["address_zipOrPostcode"], lat=row["latitude"], lon=row["longitude"],
                         capability=cap, status=status, label=label, trust=round(T, 1),

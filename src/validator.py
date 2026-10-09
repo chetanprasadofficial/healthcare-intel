@@ -1,9 +1,9 @@
 """Validator agent: the last gate before an answer is shown.
-Every displayed claim is re-checked against the RAW dataset cell. Outcomes: PASS / QUALIFY / REMOVE.
+Every displayed claim is re-checked against the RAW dataset cell. Outcomes: PASS / QUALIFY / REMOVE / DEMOTE.
 Checks: V1 citation present | V2 quote really appears in the cited source cell | V3 claim still derivable from the quote
-        V5 no live-availability wording | V6 stale/unknown date tag | V8 unknowns never shown as verified
+        V5 no live-availability wording | V8 unknowns never shown as verified
         V9 evidence comes from a photo/image caption, not a written claim
-Usage: from validator import validate; out = validate(search(...))"""
+Usage: from validator import validate; out = validate(search(..., k=12), k=5)"""
 import os, re, json
 import pandas as pd
 from extract import extract_text
@@ -33,10 +33,11 @@ def cell_items(cell):
 def label_to_status(label):
     return {"Supported": "supported", "Partially supported": "supported", "Mentioned only": "mentioned_only", "Contradicted": "contradicted"}.get(label)
 
-def validate(out):
+def validate(out, k=5):
     raw = raw_df()
-    edits, checked, passed = [], 0, 0
-    def log(check, action, item, z, reason): edits.append(dict(check=check, action=action, facility=item["name"], capability=z["capability"] if z else None, reason=reason))
+    edits, checked = [], 0
+    def log(check, action, item, z, reason):
+        edits.append(dict(check=check, action=action, facility=item["name"], capability=z["capability"] if z else None, reason=reason))
     for key in ("results", "unverified"):
         for item in out.get(key, []):
             item.setdefault("validator_notes", [])
@@ -50,30 +51,29 @@ def validate(out):
                 # V2: quote must literally appear in the cited raw cell
                 elif raw is not None:
                     cell = raw.at[z["row_id"], z["field"]] if z["row_id"] in raw.index else None
-                    if not any(z["quote"] in it or it in z["quote"] for it in cell_items(cell)):
+                    if not any(it and (z["quote"] in it or it in z["quote"]) for it in cell_items(cell)):
                         log("V2", "REMOVE", item, z, "quote not found in the cited source cell (possible hallucination)"); ok = False
                 if not ok: continue
                 # V3: claim must still be derivable from the quote alone
                 derived = [c for c in extract_text(z["row_id"], z["field"], z["quote"]) if c["capability"] == z["capability"]]
                 want = label_to_status(z.get("status"))
                 if not derived or (want and derived[0]["status"] != want):
-                    log("V3", "QUALIFY", item, z, "quote alone does not clearly support the stated status"); item["validator_notes"].append(f"{z['capability']}: evidence wording is weaker than the label suggests"); item["_qualified"] = True
-                    passed -= 0
+                    log("V3", "QUALIFY", item, z, "quote alone does not clearly support the stated status")
+                    item["validator_notes"].append(f"{z['capability']}: evidence wording is weaker than the label suggests"); item["_qualified"] = True
                 # V9: image-derived evidence
                 if IMAGE.search(z["quote"]):
-                    log("V9", "QUALIFY", item, z, "evidence is a photo/image caption, not a written service claim"); item["validator_notes"].append(f"{z['capability']}: evidence comes from an image description, confirm by phone"); item["_qualified"] = True
+                    log("V9", "QUALIFY", item, z, "evidence is a photo/image caption, not a written service claim")
+                    item["validator_notes"].append(f"{z['capability']}: evidence comes from an image description, confirm by phone"); item["_qualified"] = True
                 # V5: live-availability wording
                 if LIVE.search(z["quote"]):
-                    log("V5", "QUALIFY", item, z, "wording implies live availability; the data is a listing, not real time"); item["validator_notes"].append(f"{z['capability']}: 'facility reports' only, not live availability"); item["_qualified"] = True
+                    log("V5", "QUALIFY", item, z, "wording implies live availability; the data is a listing, not real time")
+                    item["validator_notes"].append(f"{z['capability']}: 'facility reports' only, not live availability"); item["_qualified"] = True
                 keep.append(z)
             removed = len(item["citations"]) - len(keep)
             item["citations"] = keep
-            # V6: freshness tag
-            if keep:
-                passed += len(keep)
             # V8: unknowns must never sit in the verified list
             if key == "results" and (item.get("missing") or item.get("mentioned_only") or item.get("contradicted")):
-                log("V8", "REMOVE", item, None, "unknown/only-mentioned capability cannot appear as a verified match"); item["_demote"] = True
+                log("V8", "DEMOTE", item, None, "unknown/only-mentioned capability cannot appear as a verified match"); item["_demote"] = True
             if key == "results" and (removed or not keep):
                 item["_demote"] = True
             if key == "results" and item.get("_qualified") and item.get("tier") == "Verified":
@@ -83,10 +83,17 @@ def validate(out):
     demoted = [i for i in out.get("results", []) if i.get("_demote")]
     for i in demoted:
         i["tier"] = "Unverified"; i["validator_notes"].append("moved out of verified list by the validator")
-    out["results"] = stay
-    out["unverified"] = demoted + out.get("unverified", [])
-    n_rm = sum(e["action"] == "REMOVE" for e in edits); n_q = sum(e["action"] == "QUALIFY" for e in edits)
-    out["validator"] = dict(checked=checked, removed=n_rm, qualified=n_q, edits=edits,
+    out["results"] = stay[:k]                                   # backfill: search returned extra candidates
+    out["unverified"] = (demoted + out.get("unverified", []))[:k]
+    c = out.get("counts")
+    if c:                                                       # keep the headline numbers in step with what is shown
+        c["verified"] = max(c.get("verified", 0) - len(demoted), 0)
+        c["unverified"] = c.get("unverified", 0) + len(demoted)
+    n_rm = sum(e["action"] == "REMOVE" for e in edits)
+    n_q = sum(e["action"] == "QUALIFY" for e in edits)
+    n_d = sum(e["action"] == "DEMOTE" for e in edits)
+    out["validator"] = dict(checked=checked, removed=n_rm, qualified=n_q, demoted=n_d, edits=edits,
                             raw_checked=raw is not None,
-                            summary=f"Validator checked {checked} claims: {n_rm} removed, {n_q} qualified." + ("" if raw is not None else " (raw dataset not found: quote check V2 skipped)"))
+                            summary=f"Validator checked {checked} claims: {n_rm} removed, {n_q} qualified, {n_d} moved out of the verified list."
+                                    + ("" if raw is not None else " (raw dataset not found: quote check V2 skipped)"))
     return out

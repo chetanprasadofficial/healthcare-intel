@@ -1,9 +1,8 @@
-"""Rule-first extractor v2: notes -> claims with status, quote, field, char span.
+"""Rule-first extractor v2.2: notes -> claims with status, quote, field, char span.
 Usage: python src/extract.py data/<file>.csv NOTES_COL [NOTES_COL2 ...]
 Statuses: supported | mentioned_only | contradicted   (unknown = no claim row at all)
-v2 fixes: strong/weak terms, list-style sentences capped, tight negation window,
-"No 1" marketing text ignored, dentists/pharmacies filtered out.
-v2.1: direct assertions ("ICU available") count as supported; short "A, B and C" lists are list-like."""
+v2.1: direct assertions ("ICU available") count as supported; short "A, B and C" lists are list-like.
+v2.2: whole-word marketing/list cues; "24x7" alone is not emergency care; correct char spans for JSON items."""
 import re, sys, json, yaml, pandas as pd
 
 CFG = yaml.safe_load(open("config/lexicons.yaml"))
@@ -20,10 +19,13 @@ def term_re(terms):
 STRONG = {k: term_re(v["strong"]) for k, v in CAPS.items()}
 WEAK = {k: term_re(v["weak"]) for k, v in CAPS.items()}
 EXCL_RE = {k: term_re(v) for k, v in EXCL.items()}
-NEG_RE, HEDGE_RE, DETAIL_RE = term_re(NEG), term_re(HEDGE), term_re(DETAIL)
+NEG_RE, HEDGE_RE = term_re(NEG), term_re(HEDGE)
+DETAIL_RE = term_re([d for d in DETAIL if not str(d).startswith("24")])   # "24x7" is not equipment/detail
+MARKETING_RE, LIST_RE = term_re(MARKETING), term_re(LIST_CUES)
 ASSERT_RE = term_re(["available", "offers", "provides", "has", "equipped"])
 STAFF_RE = {k: term_re(v) for k, v in STAFF.items()}
 NO_NUMBER = re.compile(r"\bno\.?\s*(1|one|\d+)\b|\bnumber\s*1\b")   # "India's No 1 ..." is marketing
+EMERG_CTX = re.compile(r"emergency|casualty|accident|trauma")
 
 def sentences(text):
     """Yield (start, end, unit). Dataset fields are JSON lists of short facts, so each
@@ -34,9 +36,12 @@ def sentences(text):
             pos = 0
             for it in json.loads(t):
                 it = str(it)
-                i = text.find(it, pos)
+                i, n = -1, len(it)
+                for cand in (json.dumps(it, ensure_ascii=False)[1:-1], json.dumps(it)[1:-1], it):
+                    i = text.find(cand, pos)
+                    if i >= 0: n = len(cand); break
                 if i < 0: i = pos
-                pos = i + len(it)
+                pos = i + n
                 yield i, pos, it
             return
         except Exception:
@@ -51,7 +56,7 @@ def sentences(text):
 def is_list_like(sl, n_caps):
     return (n_caps >= 3 or sl.count("|") >= 2 or sl.count(",") >= 4
             or sl.count(",") + sl.count(" and ") >= 2
-            or any(c in sl for c in LIST_CUES))
+            or bool(LIST_RE and LIST_RE.search(sl)))
 
 def negated(sl, m):
     before = " ".join(sl[:m.start()].split()[-4:])
@@ -65,7 +70,7 @@ def hedged(sl, m):
 
 def classify(sl, m, strong, list_like):
     if negated(sl, m) or hedged(sl, m): return "contradicted"
-    if not strong or list_like or any(c in sl for c in MARKETING): return "mentioned_only"
+    if not strong or list_like or (MARKETING_RE and MARKETING_RE.search(sl)): return "mentioned_only"
     if re.search(r"\d", sl) or DETAIL_RE.search(sl) or ASSERT_RE.search(sl): return "supported"
     return "mentioned_only"
 
@@ -83,6 +88,8 @@ def extract_text(row_id, field, text):
         for cap in CAPS:
             if cap in EXCL_RE and EXCL_RE[cap] and EXCL_RE[cap].search(sl): continue
             m = STRONG[cap].search(sl)
+            if m and cap == "emergency" and not EMERG_CTX.search(sl):
+                m = None          # "24x7 pharmacy" / "round the clock lab" is not emergency care
             if m: hits[cap] = (m, True); continue
             if WEAK[cap]:
                 m = WEAK[cap].search(sl)

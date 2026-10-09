@@ -51,7 +51,7 @@ query = st.session_state.q.strip()
 if not query:
     st.stop()
 
-out = validate(search(query, k=5, idx=idx))   # every claim passes the validator before display
+out = validate(search(query, k=12, idx=idx), k=5)   # every claim passes the validator before display
 p = out["parsed"]
 
 # ---- 1. What we understood (shown BEFORE results) ----
@@ -75,6 +75,9 @@ st.caption(f"{c.get('in_scope', 0)} facilities in scope · {c.get('with_any_evid
 if out.get("anchor"):
     st.caption(f"Distances are measured from {out['anchor'].get('basis', 'the search area')} "
                "(the average position of listings there, so approximate).")
+
+if out.get("radius_note"):
+    st.warning(out["radius_note"])
 
 def place(item):
     city, state = item.get("city") or "", item.get("state") or ""

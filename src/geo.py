@@ -21,8 +21,12 @@ def canon_state(s):
     return None
 
 def clean_geo(f):
-    """Add state_clean using the facility's own state text, else the majority state of its PIN prefix."""
+    """Add state_clean (own state text, else majority state of its PIN prefix). Blank out coordinates outside India."""
     f = f.copy()
+    for c in ("latitude", "longitude"):
+        f[c] = pd.to_numeric(f[c], errors="coerce")
+    bad = ~(f.latitude.between(6, 38) & f.longitude.between(68, 98))
+    f.loc[bad, ["latitude", "longitude"]] = float("nan")
     f["pin"] = f["address_zipOrPostcode"].astype(str).str.extract(r"(\d{6})")[0]
     f["state_clean"] = f["address_stateOrRegion"].map(canon_state)
     known = f.dropna(subset=["state_clean", "pin"])
