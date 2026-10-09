@@ -62,4 +62,5 @@ with st.expander("Method and limits"):
         "Mentioned-only and conflicting records do not count.\n"
         "- The data has about 10,000 listings, so thinly listed areas can be sampling gaps, not real gaps. That is why red says *likely*.\n"
         "- Distances are straight-line from the area centre, not road distance.\n"
+        "- PIN prefixes seen on fewer than 3 listings within a state are dropped as likely typos (for example 996544 in Hyderabad).\n"
         "- The thresholds are project choices you can change with the sliders.")
