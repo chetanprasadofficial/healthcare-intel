@@ -1,15 +1,38 @@
-# Plain config: extend this from the real notes you read. Not the solution, just vocabulary.
+# strong = names the service/equipment itself (can reach "supported")
+# weak   = only shows a specialist or related word (capped at "mentioned_only")
 capabilities:
-  icu: [icu, iccu, nicu, picu, "intensive care", "critical care", hdu, ventilator, ventilators]
-  emergency: [emergency, casualty, "24x7", "24/7", "24 x 7", "round the clock", "accident and emergency"]
-  dialysis: [dialysis, hemodialysis, haemodialysis, "renal replacement", nephrology, nephrologist, "kidney care"]
-  oncology: [oncology, oncologist, chemotherapy, radiotherapy, "cancer care", "cancer treatment"]
-  trauma: [trauma, orthopaedic, orthopedic, fracture, "accident care"]
-  surgery: [surgery, surgeon, "operation theatre", "operation theater", "operating theatre", ot, appendectomy, "c-section", caesarean]
-  anaesthesia: [anaesthesia, anesthesia, anaesthetist, anesthetist, anaesthesiologist, anesthesiologist]
+  icu:
+    strong: [icu, iccu, nicu, picu, "intensive care", "critical care"]
+    weak: [hdu, ventilator, ventilators]
+  emergency:
+    strong: [emergency, casualty, "24x7", "24/7", "24 x 7", "24×7", "round the clock", "accident and emergency"]
+    weak: []
+  dialysis:
+    strong: [dialysis, hemodialysis, haemodialysis, "renal replacement"]
+    weak: [nephrology, nephrologist, "kidney care"]
+  oncology:
+    strong: [chemotherapy, radiotherapy, "radiation oncology", "medical oncology", "surgical oncology", "cancer centre", "cancer center", "cancer hospital", "cancer treatment", "cancer care"]
+    weak: [oncology, oncologist]
+  trauma:
+    strong: ["trauma centre", "trauma center", "trauma care", "accident care", "emergency trauma", "trauma unit"]
+    weak: [trauma, orthopaedic, orthopedic, fracture]
+  surgery:
+    strong: [surgery, surgeries, "operation theatre", "operation theater", "operating theatre", "operating room", appendectomy, "c-section", caesarean]
+    weak: [surgeon, ot]
+  anaesthesia:
+    strong: [anaesthesia, anesthesia, anaesthetist, anesthetist, anaesthesiologist, anesthesiologist]
+    weak: []
+# surgery claims in these contexts are not hospital surgery
+exclude_context:
+  surgery: [dental, dentist, cosmetic, "hair transplant", aesthetic]
+  icu: [ambulance, ambulances, transport]
 negation: ["no", not, without, lacks, lacking, nil, absent, "non-functional", "non functional", "out of order", unplugged, closed]
-hedge: [planned, proposed, "under construction", "coming soon", upcoming, referred, "refer to", "to be started", "will be", expected]
+hedge: [planned, proposed, "under construction", "coming soon", upcoming, "to be started", "will be", expected, "opening soon"]
+list_cues: ["offers specialties", "specialties including", "specialities including", "including", "such as", "include", "includes"]
+# marketing / person-bio wording: never enough to call a capability "supported"
+marketing_cues: ["no 1", "no. 1", "number 1", "best", "leading", "award", "awarded", "vision", "renowned", "ranked", "years of experience", "years in", "experience in"]
 staffing:
   full_time: ["full time", "full-time", resident, "on duty", permanent]
   part_time: ["part time", "part-time", visiting, "on call", "on-call", "visits on", visits]
-detail_cues: [machine, machines, ventilator, ventilators, beds, bed, working, functional, doctor, specialist, nephrologist, intensivist, surgeon, technician, "24x7", "24/7"]
+detail_cues: [machine, machines, ventilator, ventilators, beds, bed, working, functional, equipped, "state-of-art", "24x7", "24/7", "24×7"]
+keep_facility_types: [hospital, clinic, doctor]

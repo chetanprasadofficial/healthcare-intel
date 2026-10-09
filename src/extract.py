@@ -1,18 +1,27 @@
-"""Rule-first extractor: notes -> claims with status, quote, field, char span.
-Usage: python src/extract.py data/india10k.csv NOTES_COL [NOTES_COL2 ...]
-Statuses: supported | mentioned_only | contradicted   (unknown = no claim row at all)"""
+"""Rule-first extractor v2: notes -> claims with status, quote, field, char span.
+Usage: python src/extract.py data/<file>.csv NOTES_COL [NOTES_COL2 ...]
+Statuses: supported | mentioned_only | contradicted   (unknown = no claim row at all)
+v2 fixes: strong/weak terms, list-style sentences capped, tight negation window,
+"No 1" marketing text ignored, dentists/pharmacies filtered out."""
 import re, sys, json, yaml, pandas as pd
 
 CFG = yaml.safe_load(open("config/lexicons.yaml"))
 CAPS, NEG, HEDGE = CFG["capabilities"], CFG["negation"], CFG["hedge"]
 STAFF, DETAIL = CFG["staffing"], CFG["detail_cues"]
+EXCL, LIST_CUES = CFG.get("exclude_context", {}), CFG["list_cues"]
+MARKETING = CFG.get("marketing_cues", [])
+KEEP = set(CFG["keep_facility_types"])
 
 def term_re(terms):
-    return re.compile(r"(?<![a-z0-9])(" + "|".join(re.escape(t.lower()) for t in terms) + r")(?![a-z0-9])")
+    if not terms: return None
+    return re.compile(r"(?<![a-z0-9])(" + "|".join(re.escape(str(t).lower()) for t in terms) + r")(?![a-z0-9])")
 
-CAP_RE = {k: term_re(v) for k, v in CAPS.items()}
+STRONG = {k: term_re(v["strong"]) for k, v in CAPS.items()}
+WEAK = {k: term_re(v["weak"]) for k, v in CAPS.items()}
+EXCL_RE = {k: term_re(v) for k, v in EXCL.items()}
 NEG_RE, HEDGE_RE, DETAIL_RE = term_re(NEG), term_re(HEDGE), term_re(DETAIL)
 STAFF_RE = {k: term_re(v) for k, v in STAFF.items()}
+NO_NUMBER = re.compile(r"\bno\.?\s*(1|one|\d+)\b|\bnumber\s*1\b")   # "India's No 1 ..." is marketing
 
 def sentences(text):
     """Yield (start, end, unit). Dataset fields are JSON lists of short facts, so each
@@ -20,9 +29,8 @@ def sentences(text):
     t = text.strip()
     if t.startswith("["):
         try:
-            items = json.loads(t)
             pos = 0
-            for it in items:
+            for it in json.loads(t):
                 it = str(it)
                 i = text.find(it, pos)
                 if i < 0: i = pos
@@ -38,13 +46,24 @@ def sentences(text):
         pos = i + len(part)
         yield i, pos, part
 
-def classify(sl, m):
-    before = sl[max(0, m.start() - 30): m.start()]
-    after = sl[m.end(): m.end() + 15]
-    if NEG_RE.search(before) or NEG_RE.search(after) or HEDGE_RE.search(sl):
-        return "contradicted"
-    if re.search(r"\d", sl) or DETAIL_RE.search(sl):
-        return "supported"
+def is_list_like(sl, n_caps):
+    return (n_caps >= 3 or sl.count("|") >= 2 or sl.count(",") >= 4
+            or any(c in sl for c in LIST_CUES))
+
+def negated(sl, m):
+    before = " ".join(sl[:m.start()].split()[-4:])
+    after = " ".join(sl[m.end():].split()[:3])
+    before = NO_NUMBER.sub(" ", before)
+    return bool(NEG_RE.search(before) or NEG_RE.search(after))
+
+def hedged(sl, m):
+    window = " ".join(sl[:m.start()].split()[-5:]) + " | " + " ".join(sl[m.end():].split()[:5])
+    return bool(HEDGE_RE.search(window))
+
+def classify(sl, m, strong, list_like):
+    if negated(sl, m) or hedged(sl, m): return "contradicted"
+    if not strong or list_like or any(c in sl for c in MARKETING): return "mentioned_only"
+    if re.search(r"\d", sl) or DETAIL_RE.search(sl): return "supported"
     return "mentioned_only"
 
 def staffing(sl):
@@ -57,12 +76,20 @@ def extract_text(row_id, field, text):
     if not isinstance(text, str): return claims
     for s, e, sent in sentences(text):
         sl = sent.lower()
-        for cap, rx in CAP_RE.items():
-            m = rx.search(sl)
-            if m:
-                claims.append(dict(row_id=row_id, capability=cap, status=classify(sl, m),
-                                   quote=sent.strip(), field=field, char_start=s, char_end=e,
-                                   staffing_mode=staffing(sl), method="rule"))
+        hits = {}
+        for cap in CAPS:
+            if cap in EXCL_RE and EXCL_RE[cap] and EXCL_RE[cap].search(sl): continue
+            m = STRONG[cap].search(sl)
+            if m: hits[cap] = (m, True); continue
+            if WEAK[cap]:
+                m = WEAK[cap].search(sl)
+                if m: hits[cap] = (m, False)
+        list_like = is_list_like(sl, len(hits))
+        for cap, (m, strong) in hits.items():
+            claims.append(dict(row_id=row_id, capability=cap, status=classify(sl, m, strong, list_like),
+                               quote=sent.strip(), field=field, char_start=s, char_end=e,
+                               staffing_mode=staffing(sl), term_strength="strong" if strong else "weak",
+                               list_like=list_like, method="rule"))
     return claims
 
 def run(df, cols):
@@ -73,9 +100,11 @@ def run(df, cols):
 
 if __name__ == "__main__":
     path, cols = sys.argv[1], sys.argv[2:]
-    df = pd.read_csv(path, low_memory=False)
-    df = df.reset_index(drop=True)
+    df = pd.read_csv(path, low_memory=False).reset_index(drop=True)
     df.index.name = "row_id"
+    n0 = len(df)
+    df = df[df["facilityTypeId"].isin(KEEP)]            # drop dentist / pharmacy rows
+    print(f"Rows kept: {len(df)} of {n0} (types: {sorted(KEEP)})")
     claims = run(df, cols)
     claims.to_csv("data/claims.csv", index=False)
     print(claims.status.value_counts(), "\n", claims.capability.value_counts())
