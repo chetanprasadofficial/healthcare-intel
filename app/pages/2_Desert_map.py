@@ -44,12 +44,18 @@ cols = {"area": "PIN prefix", "state": "State", "city": "Main city", "listings_n
 st.subheader("Biggest data deserts")
 st.caption("Many facilities listed, none with evidence. These are the best places to collect better data.")
 dd = areas[areas.kind == "data_desert"].sort_values("listings_nearby", ascending=False).head(10)
-st.dataframe(dd[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True) if len(dd) else st.caption("None with these settings.")
+if len(dd):
+    st.dataframe(dd[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True)
+else:
+    st.caption("None with these settings.")
 
 st.subheader("Likely medical deserts")
 st.caption("Evidence is farthest away and listings are few. These are the best places to check for real care gaps.")
 md = areas[areas.kind == "medical_desert"].sort_values("nearest_evidence_km", ascending=False).head(10)
-st.dataframe(md[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True) if len(md) else st.caption("None with these settings.")
+if len(md):
+    st.dataframe(md[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True)
+else:
+    st.caption("None with these settings.")
 
 with st.expander("By state"):
     t = pd.crosstab(areas.state.replace("", "Unknown"), areas.label)
