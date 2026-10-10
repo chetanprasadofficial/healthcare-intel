@@ -2,7 +2,5 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-data/Hackathon_Dataset_India_Larg.csv
 venv/
-data/
 venv/
