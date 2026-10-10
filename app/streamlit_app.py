@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 from search import search, Index
 from validator import validate
+from i18n import LANGS, t
 
 st.set_page_config(page_title="Healthcare Intelligence", page_icon="🏥", layout="centered")
 
@@ -23,17 +24,16 @@ SAMPLES = [
     "मुझे बिहार में डायलिसिस चाहिए",
 ]
 
-st.title("🏥 Healthcare Intelligence")
-st.caption("Evidence-first search over 10,000 facility listings. It shows what the records say, "
-           "the exact quote behind it, and what it cannot verify.")
-st.error("**In an emergency call 112 (or your local ambulance) first.** This is a decision-support prototype built on "
-         "scraped listing data. It is not a clinical authority and does not show live beds or doctors. Always phone the facility before travelling.")
+LANG = st.selectbox("🌐 Language / भाषा", list(LANGS), format_func=lambda c: LANGS[c], key="lang")
+st.title("🏥 " + t("title", LANG))
+st.caption(t("caption", LANG))
+st.error(t("emergency", LANG))
 
 if "q" not in st.session_state:
     st.session_state.q = SAMPLES[0]
 
 with st.sidebar:
-    st.header("Try an example")
+    st.header(t("examples", LANG))
     for s in SAMPLES:
         if st.button(s, key="ex_" + s):
             st.session_state.q = s
@@ -41,8 +41,8 @@ with st.sidebar:
     st.caption("Tip: add a PIN code or city for distances, e.g. *dialysis near 110001*.")
 
 with st.form("search_form"):
-    q = st.text_input("What do you need, and where?", value=st.session_state.q)
-    go = st.form_submit_button("Search")
+    q = st.text_input(t("q_label", LANG), value=st.session_state.q)
+    go = st.form_submit_button(t("search", LANG))
 if go:
     st.session_state.q = q
 
@@ -55,7 +55,7 @@ out = validate(search(query, k=12, idx=idx), k=5)   # every claim passes the val
 p = out["parsed"]
 
 # ---- 1. What we understood (shown BEFORE results) ----
-st.subheader("1. What we understood")
+st.subheader(t("s1", LANG))
 chips = []
 if p["capabilities"]: chips.append("Needs: " + " + ".join(p["capabilities"]))
 if p["state"]: chips.append("State: " + p["state"])
@@ -96,19 +96,20 @@ def card(item, expanded=False, nested=False):
         box = st.expander(title, expanded=expanded)
     with box:
         m1, m2, m3 = st.columns([2, 1, 1])
-        m1.markdown(f"**Status**  \n{icon} {tier}")
+        tier_t = {"Verified": t("verified", LANG), "Partially verified": t("partial", LANG)}.get(tier, t("unverified", LANG))
+        m1.markdown(f"**{t('status', LANG)}**  \n{icon} {tier_t}")
         if item["distance_km"] is None:
-            m2.markdown("**Distance**  \nn/a")
+            m2.markdown(f"**{t('distance', LANG)}**  \nn/a")
         else:
-            m2.metric("Distance", f"{item['distance_km']} km")
-        m3.metric("Trust", f"{item['trust']:.0f}/100")
+            m2.metric(t("distance", LANG), f"{item['distance_km']} km")
+        m3.metric(t("trust", LANG), f"{item['trust']:.0f}/100")
         if item["distance_km"] is None:
-            st.caption("Add a PIN code or city to the search to see distance.")
+            st.caption(t("add_pin", LANG))
         st.caption(f"{item['type']} · PIN {item['pin']} · staff evidence: {item['staff_fit']} · trust is a heuristic, not a probability")
         for z in item["citations"]:
             st.markdown(f"**{z['capability']}** · {item['labels'].get(z['capability'], '')}")
             st.markdown(f"> {z['quote']}")
-            st.caption(f"Source: dataset row {z['row_id']} · field `{z['field']}` · characters {z['chars'][0]}–{z['chars'][1]}")
+            st.caption(f"{t('source', LANG)} {z['row_id']} · field `{z['field']}` · characters {z['chars'][0]}–{z['chars'][1]}")
         for m in item["missing"]:
             st.info(f"No evidence in the record for **{m}** (unknown, not proof that it is absent).")
         for fl in item["flags"]:
@@ -117,13 +118,12 @@ def card(item, expanded=False, nested=False):
             st.caption("🛡️ Validator: " + n)
 
 # ---- 2. Results ----
-st.subheader("2. Best-supported matches")
+st.subheader(t("s2", LANG))
 if out["results"]:
     for i, item in enumerate(out["results"]):
         card(item, expanded=(i == 0))
 else:
-    st.warning("No facility in this area has enough evidence for everything you asked. "
-               "That is a data gap, not proof that care is unavailable. See the unverified list below, and call ahead.")
+    st.warning(t("no_results", LANG))
 
 # ---- Map ----
 pts = [dict(lat=x["lat"], lon=x["lon"]) for x in out["results"] + out["unverified"][:3] if x.get("lat")]
@@ -133,10 +133,10 @@ if pts:
     st.map(pd.DataFrame(pts), latitude="lat", longitude="lon")
 
 # ---- Unverified + why not ----
-with st.expander(f"Unverified options ({len(out['unverified'])}): shown separately, not recommended"):
+with st.expander(f"{t('unver_exp', LANG)} ({len(out['unverified'])})"):
     for item in out["unverified"]:
         card(item, nested=True)
-st.subheader("3. Why not these?")
+st.subheader(t("s3", LANG))
 if out["why_not"]:
     for w in out["why_not"]:
         d = "" if w["distance_km"] is None else f" ({w['distance_km']} km)"
@@ -145,7 +145,7 @@ else:
     st.caption("No near-miss facilities to explain.")
 
 # ---- Unknowns ----
-st.subheader("4. What we could not verify")
+st.subheader(t("s4", LANG))
 for u in out["unknowns"]:
     st.markdown(f"- {u}")
 

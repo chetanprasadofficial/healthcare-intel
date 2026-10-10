@@ -15,6 +15,15 @@ CAP_TERMS = {   # phrase -> list of required capabilities
 }
 HINDI_STATES = {"बिहार": "Bihar", "दिल्ली": "Delhi", "उत्तर प्रदेश": "Uttar Pradesh", "महाराष्ट्र": "Maharashtra", "राजस्थान": "Rajasthan",
                 "गुजरात": "Gujarat", "केरल": "Kerala", "पंजाब": "Punjab", "हरियाणा": "Haryana", "झारखंड": "Jharkhand", "मध्य प्रदेश": "Madhya Pradesh"}
+CAP_TERMS.update({
+ "आयसीयू": ["icu"], "कर्करोग": ["oncology"], "शस्त्रक्रिया": ["surgery"],
+ "ডায়ালিসিস": ["dialysis"], "আইসিইউ": ["icu"], "ক্যান্সার": ["oncology"],
+ "டயாலிசிஸ்": ["dialysis"], "ஐசியு": ["icu"], "புற்றுநோய்": ["oncology"],
+ "డయాలసిస్": ["dialysis"], "ఐసియు": ["icu"], "క్యాన్సర్": ["oncology"],
+})
+HINDI_STATES.update({
+ "বিহার": "Bihar", "দিল্লি": "Delhi", "தமிழ்நாடு": "Tamil Nadu", "తెలంగాణ": "Telangana",
+})
 CITY_STOP = {"me", "my area", "my city", "an emergency", "emergency", "case of emergency", "need", "urgent", "time", "hurry"}
 
 def has(term, t):
