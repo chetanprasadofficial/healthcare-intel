@@ -1,7 +1,5 @@
-pandas
-pyyaml
-rapidfuzz
-scikit-learn
 streamlit
-plotly
-openpyxl
+pandas
+numpy
+pyyaml
+google-genai

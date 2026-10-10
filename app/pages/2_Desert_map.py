@@ -6,21 +6,29 @@ os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, "src"))
 import pandas as pd
 import streamlit as st
 from deserts import compute, CAPS, LABELS, COLORS
+from i18n import lang_selector
+from desert_i18n import TR
 
 st.set_page_config(page_title="Desert map", page_icon="🗺️", layout="centered")
-st.title("🗺️ Medical desert vs data desert")
-st.caption("A place with no evidence is not always a place with no care. This map separates the two.")
-st.error("**In an emergency call 112 first.** This map is built from listing data, not from a health-system census.")
+LANG = lang_selector("map")
+
+def T(key, **kw):
+    s = TR.get(LANG, {}).get(key) or TR["en"][key]      # falls back to English if a key is missing
+    return s.format(**kw) if kw else s
+
+st.title(T("title"))
+st.caption(T("caption"))
+st.error(T("emerg"))
 
 @st.cache_data
 def get(cap, prefix, radius, min_listings):
     return compute(cap, prefix=prefix, radius=radius, min_listings=min_listings)
 
 c1, c2 = st.columns(2)
-cap = c1.selectbox("Capability", CAPS, index=0)
-prefix = c2.radio("Area size", [3, 4], format_func=lambda n: f"PIN prefix, {n} digits", horizontal=True)
-radius = c1.slider("Coverage radius (km)", 10, 100, 25, step=5)
-min_listings = c2.slider("Listings needed to call it a data desert", 1, 20, 5)
+cap = c1.selectbox(T("cap"), CAPS, index=0)
+prefix = c2.radio(T("area_size"), [3, 4], format_func=lambda n: T("prefix", n=n), horizontal=True)
+radius = c1.slider(T("radius"), 10, 100, 25, step=5)
+min_listings = c2.slider(T("minl"), 1, 20, 5)
 
 areas = get(cap, prefix, float(radius), int(min_listings))
 n = len(areas)
@@ -28,45 +36,37 @@ counts = areas.kind.value_counts()
 m1, m2, m3 = st.columns(3)
 for col, k in zip((m1, m2, m3), ("covered", "data_desert", "medical_desert")):
     v = int(counts.get(k, 0))
-    col.metric(LABELS[k], v, f"{100 * v / max(n, 1):.0f}% of {n} areas", delta_color="off")
+    col.metric(T(k), v, T("of_areas", pct=f"{100 * v / max(n, 1):.0f}", n=n), delta_color="off")
 
-st.markdown(" &nbsp; ".join(f"<span style='color:{COLORS[k]}'>●</span> {LABELS[k]}" for k in COLORS), unsafe_allow_html=True)
+st.markdown(" &nbsp; ".join(f"<span style='color:{COLORS[k]}'>●</span> {T(k)}" for k in COLORS), unsafe_allow_html=True)
 st.map(areas[["lat", "lon", "color"]], latitude="lat", longitude="lon", color="color", size=9000)
 
-st.markdown(f"""
-- 🟢 **Covered:** a listing with supported evidence for **{cap}** lies within {radius} km.
-- 🟠 **Data desert:** at least {min_listings} listings within {radius} km, but none with evidence for {cap}. Care may exist; the records are silent.
-- 🔴 **Likely medical desert:** no evidence and fewer than {min_listings} listings nearby. This may also mean the dataset samples that area lightly.
-""")
+st.markdown("\n".join([T("b_cov", cap=cap, radius=radius),
+                       T("b_dd", cap=cap, radius=radius, minl=min_listings),
+                       T("b_md", minl=min_listings)]))
 
-cols = {"area": "PIN prefix", "state": "State", "city": "Main city", "listings_nearby": "Listings nearby",
-        "mentions": "Mentions only", "nearest_evidence_km": "Nearest evidence (km)"}
-st.subheader("Biggest data deserts")
-st.caption("Many facilities listed, none with evidence. These are the best places to collect better data.")
+cols = {"area": T("c_area"), "state": T("c_state"), "city": T("c_city"), "listings_nearby": T("c_list"),
+        "mentions": T("c_ment"), "nearest_evidence_km": T("c_near")}
+
+st.subheader(T("h_dd"))
+st.caption(T("s_dd"))
 dd = areas[areas.kind == "data_desert"].sort_values("listings_nearby", ascending=False).head(10)
 if len(dd):
     st.dataframe(dd[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True)
 else:
-    st.caption("None with these settings.")
+    st.caption(T("none"))
 
-st.subheader("Likely medical deserts")
-st.caption("Evidence is farthest away and listings are few. These are the best places to check for real care gaps.")
+st.subheader(T("h_md"))
+st.caption(T("s_md"))
 md = areas[areas.kind == "medical_desert"].sort_values("nearest_evidence_km", ascending=False).head(10)
 if len(md):
     st.dataframe(md[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True)
 else:
-    st.caption("None with these settings.")
+    st.caption(T("none"))
 
-with st.expander("By state"):
-    t = pd.crosstab(areas.state.replace("", "Unknown"), areas.label)
-    st.dataframe(t, use_container_width=True)
+with st.expander(T("by_state")):
+    tbl = pd.crosstab(areas.state.replace("", "Unknown"), areas.label)
+    st.dataframe(tbl, use_container_width=True)
 
-with st.expander("Method and limits"):
-    st.markdown(
-        "- Each area is a PIN prefix; its centre is the average position of its listings.\n"
-        "- Evidence means a capability marked *supported* by the extractor and verifier, including partially supported. "
-        "Mentioned-only and conflicting records do not count.\n"
-        "- The data has about 10,000 listings, so thinly listed areas can be sampling gaps, not real gaps. That is why red says *likely*.\n"
-        "- Distances are straight-line from the area centre, not road distance.\n"
-        "- PIN prefixes seen on fewer than 3 listings within a state are dropped as likely typos (for example 996544 in Hyderabad).\n"
-        "- The thresholds are project choices you can change with the sliders.")
+with st.expander(T("method")):
+    st.markdown(T("m_text"))

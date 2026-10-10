@@ -1,33 +1,45 @@
-"""Rule-based query parser: text (English + a few Hindi words) -> structured requirement JSON.
+"""Rule-based query parser: text (English + several Indian languages) -> structured requirement JSON.
 The UI shows this BEFORE searching so the user can catch misreadings."""
 import re
 from geo import CANON, ALIAS
 
 CAP_TERMS = {   # phrase -> list of required capabilities
  "appendectomy": ["surgery", "emergency"], "appendix": ["surgery", "emergency"],
- "dialysis": ["dialysis"], "डायलिसिस": ["dialysis"], "kidney": ["dialysis"],
- "icu": ["icu"], "intensive care": ["icu"], "critical care": ["icu"], "आईसीयू": ["icu"], "ventilator": ["icu"],
- "trauma": ["trauma"], "fracture": ["trauma"], "ट्रॉमा": ["trauma"],
- "cancer": ["oncology"], "oncology": ["oncology"], "chemotherapy": ["oncology"], "radiotherapy": ["oncology"], "कैंसर": ["oncology"],
- "surgery": ["surgery"], "operation": ["surgery"], "सर्जरी": ["surgery"], "ऑपरेशन": ["surgery"],
+ "dialysis": ["dialysis"], "kidney": ["dialysis"],
+ "icu": ["icu"], "intensive care": ["icu"], "critical care": ["icu"], "ventilator": ["icu"],
+ "trauma": ["trauma"], "fracture": ["trauma"],
+ "cancer": ["oncology"], "oncology": ["oncology"], "chemotherapy": ["oncology"], "radiotherapy": ["oncology"],
+ "surgery": ["surgery"], "operation": ["surgery"],
  "anaesthesia": ["anaesthesia"], "anesthesia": ["anaesthesia"],
- "emergency": ["emergency"], "casualty": ["emergency"], "इमरजेंसी": ["emergency"], "आपातकालीन": ["emergency"], "accident": ["emergency"],
+ "emergency": ["emergency"], "casualty": ["emergency"], "accident": ["emergency"],
+ # Hindi / Marathi
+ "डायलिसिस": ["dialysis"], "आईसीयू": ["icu"], "आयसीयू": ["icu"], "ट्रॉमा": ["trauma"],
+ "कैंसर": ["oncology"], "कर्करोग": ["oncology"], "सर्जरी": ["surgery"], "ऑपरेशन": ["surgery"], "शस्त्रक्रिया": ["surgery"],
+ "इमरजेंसी": ["emergency"], "आपातकालीन": ["emergency"], "आपत्कालीन": ["emergency"],
+ # Bengali
+ "ডায়ালাইসিস": ["dialysis"], "ডায়ালিসিস": ["dialysis"], "আইসিইউ": ["icu"], "ক্যান্সার": ["oncology"],
+ "ট্রমা": ["trauma"], "সার্জারি": ["surgery"], "জরুরি": ["emergency"],
+ # Tamil
+ "டயாலிசிஸ்": ["dialysis"], "ஐசியு": ["icu"], "புற்றுநோய்": ["oncology"], "அறுவை சிகிச்சை": ["surgery"], "அவசர": ["emergency"],
+ # Telugu
+ "డయాలసిస్": ["dialysis"], "ఐసియు": ["icu"], "క్యాన్సర్": ["oncology"], "శస్త్రచికిత్స": ["surgery"], "అత్యవసర": ["emergency"],
+ # Gujarati
+ "ડાયાલિસિસ": ["dialysis"], "આઈસીયુ": ["icu"], "કેન્સર": ["oncology"], "સર્જરી": ["surgery"], "ઇમરજન્સી": ["emergency"],
+ # Kannada
+ "ಡಯಾಲಿಸಿಸ್": ["dialysis"], "ಐಸಿಯು": ["icu"], "ಕ್ಯಾನ್ಸರ್": ["oncology"], "ಶಸ್ತ್ರಚಿಕಿತ್ಸೆ": ["surgery"], "ತುರ್ತು": ["emergency"],
+ # Malayalam
+ "ഡയാലിസിസ്": ["dialysis"], "ഐസിയു": ["icu"], "ക്യാൻസർ": ["oncology"], "ശസ്ത്രക്രിയ": ["surgery"], "അത്യാഹിത": ["emergency"],
 }
 HINDI_STATES = {"बिहार": "Bihar", "दिल्ली": "Delhi", "उत्तर प्रदेश": "Uttar Pradesh", "महाराष्ट्र": "Maharashtra", "राजस्थान": "Rajasthan",
-                "गुजरात": "Gujarat", "केरल": "Kerala", "पंजाब": "Punjab", "हरियाणा": "Haryana", "झारखंड": "Jharkhand", "मध्य प्रदेश": "Madhya Pradesh"}
-CAP_TERMS.update({
- "आयसीयू": ["icu"], "कर्करोग": ["oncology"], "शस्त्रक्रिया": ["surgery"],
- "ডায়ালিসিস": ["dialysis"], "আইসিইউ": ["icu"], "ক্যান্সার": ["oncology"],
- "டயாலிசிஸ்": ["dialysis"], "ஐசியு": ["icu"], "புற்றுநோய்": ["oncology"],
- "డయాలసిస్": ["dialysis"], "ఐసియు": ["icu"], "క్యాన్సర్": ["oncology"],
-})
-HINDI_STATES.update({
- "বিহার": "Bihar", "দিল্লি": "Delhi", "தமிழ்நாடு": "Tamil Nadu", "తెలంగాణ": "Telangana",
-})
+                "गुजरात": "Gujarat", "केरल": "Kerala", "पंजाब": "Punjab", "हरियाणा": "Haryana", "झारखंड": "Jharkhand", "मध्य प्रदेश": "Madhya Pradesh",
+                "বিহার": "Bihar", "দিল্লি": "Delhi", "পশ্চিমবঙ্গ": "West Bengal", "মহারাষ্ট্র": "Maharashtra",
+                "தமிழ்நாடு": "Tamil Nadu", "கேரளா": "Kerala", "டெல்லி": "Delhi", "கர்நாடகா": "Karnataka",
+                "తెలంగాణ": "Telangana", "ఆంధ్రప్రదేశ్": "Andhra Pradesh", "ఢిల్లీ": "Delhi",
+                "ગુજરાત": "Gujarat", "ದೆಹಲಿ": "Delhi", "ಕರ್ನಾಟಕ": "Karnataka", "കേരളം": "Kerala"}
 CITY_STOP = {"me", "my area", "my city", "an emergency", "emergency", "case of emergency", "need", "urgent", "time", "hurry"}
 
 def has(term, t):
-    """Whole-word match for Latin terms (so 'icu' does not match 'Calicut'); plain match for Devanagari."""
+    """Whole-word match for Latin terms (so 'icu' does not match 'Calicut'); plain match for other scripts."""
     if not term.isascii():
         return term in t
     return re.search(r"(?<![a-z0-9])" + re.escape(term) + r"(?:s|es)?(?![a-z0-9])", t) is not None

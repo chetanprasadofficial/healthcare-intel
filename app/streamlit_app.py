@@ -1,6 +1,6 @@
 """Healthcare Intelligence (PS-03) - Streamlit app.
 Run from the project root:  streamlit run app/streamlit_app.py"""
-import os, sys
+import os, sys, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, "src"))
 
@@ -8,7 +8,9 @@ import pandas as pd
 import streamlit as st
 from search import search, Index
 from validator import validate
-from i18n import LANGS, t
+from query import parse
+from i18n import LANGS, t, lang_selector
+import llm
 
 st.set_page_config(page_title="Healthcare Intelligence", page_icon="🏥", layout="centered")
 
@@ -24,7 +26,7 @@ SAMPLES = [
     "मुझे बिहार में डायलिसिस चाहिए",
 ]
 
-LANG = st.selectbox("🌐 Language / भाषा", list(LANGS), format_func=lambda c: LANGS[c], key="lang")
+LANG = lang_selector("home")
 st.title("🏥 " + t("title", LANG))
 st.caption(t("caption", LANG))
 st.error(t("emergency", LANG))
@@ -51,7 +53,20 @@ query = st.session_state.q.strip()
 if not query:
     st.stop()
 
-out = validate(search(query, k=12, idx=idx), k=5)   # every claim passes the validator before display
+use_ai = False
+if llm.available():
+    use_ai = st.toggle("🤖 AI assistant (understands any language, writes a summary)", value=True)
+req = None
+if use_ai and not parse(query)["capabilities"]:
+    pkey = f"parse|{query}"
+    if not st.session_state.get(pkey) and time.time() > st.session_state.get("ai_pause_until", 0):
+        res = llm.parse_llm(query)
+        if res:
+            st.session_state[pkey] = res
+        else:
+            st.session_state["ai_pause_until"] = time.time() + 60     # pause AI calls for a minute after a failure
+    req = st.session_state.get(pkey)
+out = validate(search(query, k=12, idx=idx, req=req), k=5)   # every claim passes the validator before display
 p = out["parsed"]
 
 # ---- 1. What we understood (shown BEFORE results) ----
@@ -75,7 +90,6 @@ st.caption(f"{c.get('in_scope', 0)} facilities in scope · {c.get('with_any_evid
 if out.get("anchor"):
     st.caption(f"Distances are measured from {out['anchor'].get('basis', 'the search area')} "
                "(the average position of listings there, so approximate).")
-
 if out.get("radius_note"):
     st.warning(out["radius_note"])
 
@@ -124,6 +138,20 @@ if out["results"]:
         card(item, expanded=(i == 0))
 else:
     st.warning(t("no_results", LANG))
+
+# ---- AI summary (grounded, guarded) ----
+if use_ai and (out["results"] or out["unverified"]):
+    skey = f"sum|{query}|{LANG}"
+    if not st.session_state.get(skey) and time.time() > st.session_state.get("ai_pause_until", 0):
+        with st.spinner("..."):
+            st.session_state[skey] = llm.summarize(out, LANGS[LANG])
+        if not st.session_state[skey]:
+            st.session_state["ai_pause_until"] = time.time() + 60     # pause AI calls for a minute after a failure
+    if st.session_state.get(skey):
+        st.info(st.session_state[skey])
+        st.caption("🤖 AI summary written only from the cited records above. It can still be wrong, so check the quotes.")
+    else:
+        st.caption("🤖 No AI summary right now (the AI service is busy or unavailable). The cited results above are unaffected.")
 
 # ---- Map ----
 pts = [dict(lat=x["lat"], lon=x["lon"]) for x in out["results"] + out["unverified"][:3] if x.get("lat")]

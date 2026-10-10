@@ -37,9 +37,9 @@ def citations(caps_rows):
     return [dict(capability=r.capability, status=r.label, quote=r.quote, row_id=int(r.row_id), field=r.quote_field,
                  chars=[int(r.char_start), int(r.char_end)]) for r in caps_rows.itertuples()]
 
-def search(text, k=5, idx=None):
+def search(text, k=5, idx=None, req=None):
     idx = idx or Index()
-    req = parse(text)
+    req = req or parse(text)
     out = dict(parsed=req, results=[], unverified=[], why_not=[], unknowns=[], anchor=None, radius_note=None)
     if not req["capabilities"]: return out
     f = idx.fac
