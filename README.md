@@ -134,4 +134,5 @@ requirements.txt
 
 ## Team
 
-**Chilli Coders**: Kalyani Kriti (team leader), Adriza Das, Chetan Prasad. Built for the Medha AI/ML Hackathon 2026, PS-03 Healthcare Intelligence.
+**Chilli Coders** 
+Built for the Medha AI/ML Hackathon 2026, PS-03 Healthcare Intelligence.
